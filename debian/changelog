@@ -1,0 +1,5 @@
+garden-repo-manager (1.0.0) gardenlinux; urgency=medium
+
+  * Initial release of garden-repo-manager for Garden Linux
+
+ -- Florian Paul Azim Hoberg <florian.hoberg@netapp.com>  Mon, 05 Dec 2022 09:55:54 +0000

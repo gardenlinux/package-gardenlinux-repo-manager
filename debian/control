@@ -1,0 +1,16 @@
+Source: garden-repo-manager
+Section: os
+Priority: optional
+Maintainer: Florian Paul Azim Hoberg <florian.hoberg@netapp.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.5.1
+Homepage: <insert the upstream URL, if relevant>
+#Vcs-Browser: https://gitlab.com/gardenlinux/gardenlinux-package-gardenlinux-repo-manager
+#Vcs-Git: https://gitlab.com/gardenlinux/gardenlinux-package-gardenlinux-repo-manager.git
+Rules-Requires-Root: no
+
+Package: garden-repo-manager
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, python3
+Description: Repository manager for GardenLinux
+  This package installs the repository manager for GardenLinux.

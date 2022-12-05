@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+
+
+# Constants
+__VERSION__ = '@@VER@@'
+__APT_REPO_META_DIR__ = '/etc/apt/sources.list.d'
+__APT_REPO_PRIO_DIR__ = '/etc/apt/preferences.d'
+__GRM_PREFIX__ = 'GRM_'
+
+
+def main():
+    """ Garden Linux Repository Manager """
+    # Get cli arguments
+    args = get_args()
+
+    # Add, remove or list (a) repo config file(s)
+    if args.action == 'add':
+        validate(args.distro, args.suite, args.components)
+        write_repo_meta_file(args.distro, args.suite, args.components, args.source, args.packages, args.arch)
+        write_repo_prio_file(args.distro)
+
+    if args.action == 'remove':
+        validate(args.distro, args.suite, args.components)
+        remove_repo_meta_file(args.distro, args.suite)
+        remove_repo_prio_file(args.distro)
+
+    if args.action == 'list':
+        list_repo(args.verbose)
+
+
+def get_args():
+    """ Get external cli args """
+    # Overwrite the HelpFormatter for avoid newlines
+    class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+        def __init__(self, *args, **kwargs):
+            kwargs["max_help_position"] = 50
+            kwargs["width"] = 120
+            super().__init__(*args, **kwargs)
+
+    # Initialize argparse with custom HelpFormatter
+    parser = argparse.ArgumentParser(formatter_class=CustomHelpFormatter)
+    # Help messages
+    help_action  = 'Define to add or remove a repository.'
+    help_distro  = 'Define the distribution for a repository.'
+    help_suite   = 'Define the suite(s) for a Debian distribution.'
+    help_comp    = 'Define the components for a distribution.'
+    help_source  = 'Add source repository.'
+    help_verbose = 'Print verbose output.'
+    help_package = 'Path to local packages (needs a repository index file)'
+    help_arch    = 'Overwrite architecture for a repository.'
+
+    # Parse arguments
+    parser.add_argument('action',  choices=['add','remove','list'], help=help_action)
+    parser.add_argument('distro',  nargs='?', choices=['gardenlinux','debian','local'], help=help_distro)
+    parser.add_argument('suite',   nargs='?', choices=['testing','unstable','experimental'], help=help_suite)
+    parser.add_argument('-c', '--components', nargs='+', help=help_comp)
+    parser.add_argument('-s', '--source',     action='store_true', help=help_source)
+    parser.add_argument('-v', '--verbose',    action='store_true', help=help_verbose)
+    parser.add_argument('-p', '--packages',   default='/', help=help_package)
+    parser.add_argument('-a', '--arch',       choices=['amd64','arm64'], default='amd64', help=help_arch)
+    args = parser.parse_args()
+    return(args)
+
+
+def write_repo_meta_file(distro, suite, components, source, packages, arch):
+    """ Write a repository meta file """
+    # Generate repository URI
+    if distro == 'gardenlinux':
+        repo_url = f'https://repo.gardenlinux.io/{distro}'
+        suite = 'today'
+        components = ['main']
+        repo_sign_file = '/etc/apt/trusted.gpg.d/gardenlinux.asc'
+    elif distro == 'debian':
+        repo_url = f'https://deb.debian.org/debian'
+    elif distro == 'local':
+        repo_url = f'file:{packages}'
+        components = []
+
+    # Generate repo types
+    if source:
+        repo_type = 'deb deb-src'
+    else:
+        repo_type = 'deb'
+
+    # Generate list by spaces from python list
+    repo_components = ' '.join(components)
+
+    # During debootstrap we may not install jinja templating.
+    # Therefore, we create our content ourself
+    repo_file = []
+    repo_file.append(f'X-Repolib-Name: Managed_{distro}_{suite}')
+    repo_file.append('Enabled: yes')
+    repo_file.append(f'URIs: {repo_url}')
+    repo_file.append(f'Types: {repo_type}')
+    repo_file.append(f'Architectures: {arch}')
+
+    # Set options for local repositories
+    if distro == 'local':
+        # Trust local repository
+        repo_file.append(f'Trusted: yes')
+        repo_file.append(f'Suites: /')
+    else:
+        # Add components for all other ones
+        repo_file.append(f'Suites: {suite}')
+        repo_file.append(f'Components: {repo_components}')
+
+    # Add Garden Linux repository GPG key
+    if distro == 'gardenlinux':
+        validate_file_present(repo_sign_file)
+        repo_file.append(f'Signed-By: {repo_sign_file}')
+
+    # Write repo sources file
+    prefix = __GRM_PREFIX__
+    dname = __APT_REPO_META_DIR__
+    fname = f'{dname}/{prefix}{distro}_{suite}.sources'
+    write_file_line_by_line(fname, repo_file)
+
+
+def write_repo_prio_file(distro):
+    """ Write a repository priority file """
+    # Generate priorities for repositories
+    # (Keep them usable in all cases even if Debian is configured as
+    #  a standalone repository the lower priorities will work, because
+    #  there is no other choice to fetch packages from.)
+    if distro == 'gardenlinux':
+        origin = 'repo.gardenlinux.io'
+        priority = '550'
+    elif distro == 'debian':
+        origin = 'deb.debian.org'
+        priority = '500'
+    elif distro == 'local':
+        origin = '""'
+        priority = '600'
+
+    # During debootstrap we may not install jinja templating.
+    # Therefore, we create our content ourself
+    repo_file = []
+    repo_file.append(f'Package: *\nPin: origin {origin}\nPin-Priority: {priority}\n')
+
+    # Write repository priority file
+    prefix = __GRM_PREFIX__
+    dname = __APT_REPO_PRIO_DIR__
+    fname = f'{dname}/{prefix}{distro}'
+    write_file_line_by_line(fname, repo_file)
+
+
+def write_file_line_by_line(fname, content):
+    """ Write a file line by line """
+    try:
+        with open(fname, 'w') as f:
+            for line in content:
+                try:
+                    f.write(line)
+                    f.write('\n')
+                except (IOError, OSError):
+                    _error_handler(f'Could not write file: {fname}')
+    except PermissionError:
+        _error_handler(f'No permissions to write file: {fname}')
+
+
+def read_file(fname):
+    """ Read a file by a given file name """
+    try:
+        with open(fname) as f:
+            content = f.readlines()
+    except PermissionError:
+        _error_handler(f'No permissions to write file: {fname}')
+    return content
+
+def remove_repo_meta_file(distro, suite):
+    """ Remove a repository meta file """
+    prefix = __GRM_PREFIX__
+    dname = __APT_REPO_META_DIR__
+    fname = f'{dname}/{prefix}{distro}_{suite}.sources'
+    remove_file(fname)
+
+
+def remove_repo_prio_file(distro):
+    """ Remove a repository priority file """
+    prefix = __GRM_PREFIX__
+    dname = __APT_REPO_PRIO_DIR__
+    fname = f'{dname}/{prefix}{distro}'
+    remove_file(fname)
+
+
+def remove_file(fname):
+    """ Remove a file by a given path to file """
+    try:
+        os.remove(fname)
+    except FileNotFoundError:
+        pass
+
+
+def validate_file_present(fname):
+    """ Validate if a file is present """
+    if os.path.exists(fname):
+        pass
+    else:
+        _error_handler(f'Could not find file: {fname}')
+
+
+def validate(distro, suite, components):
+    """ Validate given cli opts"""
+    if distro == 'gardenlinux':
+        validate_distro_gardenlinux()
+    elif distro == 'debian':
+        validate_distro_debian(suite, components)
+    elif distro == 'local':
+        validate_distro_local()
+    else:
+        _error_handler(f'No distribution selected.')
+
+
+def validate_distro_gardenlinux():
+    """ Validate cli opts for Garden Linux """
+    # Currently we do not need to validate anything here
+    pass
+
+
+def validate_distro_debian(suite, components):
+    """ Validate cli opts for Debian """
+    log_error = False
+    # Check for empty cli options that are necessary
+    if (suite or components) is None:
+        log_error = True
+
+    # Write error
+    if log_error:
+        _error_handler(f'Missing cli options to add repository.')
+
+
+def validate_distro_local():
+    """ Validate cli opts for local """
+    # Currently we do not need to validate anything here
+    pass
+
+
+def list_repo(verbose):
+    """ List all configured repositories """
+    dname = __APT_REPO_META_DIR__
+    prefix = __GRM_PREFIX__
+    suffix = '.sources'
+    managed = []
+    unmanaged = []
+
+    # Get sources file for repositories
+    for fname in os.listdir(dname):
+        # Only fetch valid Debian sources file
+        if fname.endswith(suffix):
+            # Get garden-repo-manager managed configs
+            if fname.startswith(prefix):
+                managed.append(fname)
+            else:
+                unmanaged.append(fname)
+
+    # Generate output
+    print('Following repositories are configured:')
+    print('\n')
+
+    # Managed
+    print('Managed by "garden-repo-manager":')
+    print('Distribution \t\t Suite')
+    print('--------------------------------------')
+    if len(managed) == 0:
+        print('No managed repositories found.')
+    else:
+        for fname in managed:
+            alias_name = fname.split("_")
+            print(alias_name[1] + '\t\t ' + alias_name[2].strip('.sources'))
+            if verbose:
+                content = read_file(f'{dname}/{fname}')
+                for line in content:
+                    print('\t\t' + line.strip('\n'))
+
+    print('\n')
+
+    # Unmanaged
+    print('Unmanaged repositories:')
+    print('--------------------------------------')
+    if len(unmanaged) == 0:
+        print('No unmanaged repositories found.')
+    else:
+        for fname in unmanaged:
+            print(fname)
+
+
+def _error_handler(message, exit=True):
+    """ Default error handler that can be parametrized by a
+        custom message """
+    print(f'Error: {message}')
+    if exit:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
