@@ -73,9 +73,9 @@ def write_repo_meta_file(distro, suite, components, source, packages, arch, time
     # Generate repository URI
     if distro == 'gardenlinux':
         repo_url = f'https://repo.gardenlinux.io/{distro}'
-        if timestamp:
-            repo_url = f'https://repo.gardenlinux.io/{distro}/dists/{timestamp}'
         suite = 'today'
+        if timestamp:
+            suite = timestamp
         components = ['main']
         repo_sign_file = '/etc/apt/trusted.gpg.d/gardenlinux.asc'
     elif distro == 'debian':

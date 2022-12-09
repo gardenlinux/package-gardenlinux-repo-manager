@@ -1,3 +1,9 @@
+garden-repo-manager (1.0.2) gardenlinux; urgency=medium
+
+  * Adjust Garden Linux snapshot repository URL
+
+ -- Florian Paul Azim Hoberg <florian.hoberg@netapp.com>  Fri, 09 Dec 2022 11:44:07 +0000
+
 garden-repo-manager (1.0.1) gardenlinux; urgency=medium
 
   * Add timestamp argument for snapshot support
