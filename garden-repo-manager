@@ -20,7 +20,7 @@ def main():
     # Add, remove or list (a) repo config file(s)
     if args.action == 'add':
         validate(args.distro, args.suite, args.components)
-        write_repo_meta_file(args.distro, args.suite, args.components, args.source, args.packages, args.arch)
+        write_repo_meta_file(args.distro, args.suite, args.components, args.source, args.packages, args.arch, args.timestamp)
         write_repo_prio_file(args.distro)
 
     if args.action == 'remove':
@@ -44,14 +44,15 @@ def get_args():
     # Initialize argparse with custom HelpFormatter
     parser = argparse.ArgumentParser(formatter_class=CustomHelpFormatter)
     # Help messages
-    help_action  = 'Define to add or remove a repository.'
-    help_distro  = 'Define the distribution for a repository.'
-    help_suite   = 'Define the suite(s) for a Debian distribution.'
-    help_comp    = 'Define the components for a distribution.'
-    help_source  = 'Add source repository.'
-    help_verbose = 'Print verbose output.'
-    help_package = 'Path to local packages (needs a repository index file)'
-    help_arch    = 'Overwrite architecture for a repository.'
+    help_action    = 'Define to add or remove a repository.'
+    help_distro    = 'Define the distribution for a repository.'
+    help_suite     = 'Define the suite(s) for a Debian distribution.'
+    help_comp      = 'Define the components for a distribution.'
+    help_source    = 'Add source repository.'
+    help_verbose   = 'Print verbose output.'
+    help_package   = 'Path to local packages (needs a repository index file)'
+    help_timestamp = 'Path to local packages (needs a repository index file)'
+    help_arch      = 'Overwrite architecture for a repository.'
 
     # Parse arguments
     parser.add_argument('action',  choices=['add','remove','list'], help=help_action)
@@ -61,21 +62,26 @@ def get_args():
     parser.add_argument('-s', '--source',     action='store_true', help=help_source)
     parser.add_argument('-v', '--verbose',    action='store_true', help=help_verbose)
     parser.add_argument('-p', '--packages',   default='/', help=help_package)
+    parser.add_argument('-t', '--timestamp',  default=None, help=help_timestamp)
     parser.add_argument('-a', '--arch',       choices=['amd64','arm64'], default='amd64', help=help_arch)
     args = parser.parse_args()
     return(args)
 
 
-def write_repo_meta_file(distro, suite, components, source, packages, arch):
+def write_repo_meta_file(distro, suite, components, source, packages, arch, timestamp):
     """ Write a repository meta file """
     # Generate repository URI
     if distro == 'gardenlinux':
         repo_url = f'https://repo.gardenlinux.io/{distro}'
+        if timestamp:
+            repo_url = f'https://repo.gardenlinux.io/{distro}/dists/{timestamp}'
         suite = 'today'
         components = ['main']
         repo_sign_file = '/etc/apt/trusted.gpg.d/gardenlinux.asc'
     elif distro == 'debian':
         repo_url = f'https://deb.debian.org/debian'
+        if timestamp:
+            repo_url = f'https://snapshot.debian.org/archive/debian/{timestamp}'
     elif distro == 'local':
         repo_url = f'file:{packages}'
         components = []
