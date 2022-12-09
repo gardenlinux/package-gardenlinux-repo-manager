@@ -28,6 +28,18 @@ Removing the Garden Linux repository does not require any further parameters:
 garden-repo-manager remove gardenlinux
 ```
 
+#### Repository URL
+The following repository URLs are available for Garden Linux:
+
+| Type | URL |
+| -- | -- |
+| default | https://repo.gardenlinux.io/gardenlinux |
+| snapshot | https://repo.gardenlinux.io/gardenlinux/dists/$timestamp |
+
+Hint: The timestamp value is represented by the version.<br>Example:
+
+`http://repo.gardenlinux.io/gardenlinux/dists/934.1/`
+
 ### Debian repository
 Additional Debian repositories can be added for Garden Linux to benefit from further software packages in different options. This can become very handy when a newer software version from `unstable` or `experimental` is needed.
 
@@ -45,6 +57,14 @@ Removing a Debian repository needs a desired suite and components parameters:
 garden-repo-manager remove debian testing -c main contrib
 ```
 
+#### Repository URL
+The following repository URLs are available for Debian:
+
+| Type | URL |
+| -- | -- |
+| default | https://deb.debian.org/debian |
+| snapshot | https://snapshot.debian.org/archive/debian/$timestamp |
+
 #### List
 All in DEB822 format managed and unmanaged repositories can be listed by running:
 ```
@@ -60,6 +80,7 @@ garden-repo-manager list
 | -c | --components | Defines the components for a distribution. |
 | -p | --packages | Path to local packages (needs a repository index file) |
 | -s | --source | Add repository as sources |
+| -t | --timestamp | Defines a timestamp or version for a repository and sets the repository URI according the snapshot archives |
 
 
 ## Bugs
