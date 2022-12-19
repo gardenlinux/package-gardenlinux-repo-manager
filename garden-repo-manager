@@ -151,7 +151,9 @@ def write_repo_prio_file(distro):
     prefix = __GRM_PREFIX__
     dname = __APT_REPO_PRIO_DIR__
     fname = f'{dname}/{prefix}{distro}'
-    write_file_line_by_line(fname, repo_file)
+    # Keep default priorities for Debian
+    if distro != 'debian':
+        write_file_line_by_line(fname, repo_file)
 
 
 def write_file_line_by_line(fname, content):

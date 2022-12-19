@@ -1,3 +1,9 @@
+garden-repo-manager (1.0.3) gardenlinux; urgency=medium
+
+  * Keep default priority for Debian repositories
+
+ -- Florian Paul Azim Hoberg <florian.hoberg@netapp.com>  Mon, 19 Dec 2022 09:41:51 +0000
+
 garden-repo-manager (1.0.2) gardenlinux; urgency=medium
 
   * Adjust Garden Linux snapshot repository URL
